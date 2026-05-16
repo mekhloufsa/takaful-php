@@ -57,11 +57,6 @@ include __DIR__ . '/includes/header.php';
             <a href="<?= BASE_URL ?>register.php" class="font-bold text-primary">Créer un compte</a>
         </div>
 
-        <div class="test-accounts-box">
-            <strong>Comptes de test :</strong><br>
-            Membre : ahmed@test.dz / password<br>
-            Admin : admin@takaful.dz / password
-        </div>
     </div>
 </div>
 
