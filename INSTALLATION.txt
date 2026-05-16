@@ -1,0 +1,147 @@
+===============================================================
+         TAKAFUL — Guide d'installation XAMPP
+===============================================================
+
+ÉTAPES D'INSTALLATION :
+========================
+
+1. INSTALLER XAMPP
+   - Téléchargez XAMPP depuis : https://www.apachefriends.org/fr/index.html
+   - Installez-le (chemin par défaut : C:\xampp)
+   - Lancez XAMPP Control Panel
+   - Démarrez Apache et MySQL (cliquez "Start" pour les deux)
+
+2. COPIER LE PROJET
+   - Copiez le dossier "takaful-php" complet dans :
+       C:\xampp\htdocs\
+   - Renommez-le en "takaful" (optionnel mais recommandé)
+   - Résultat : C:\xampp\htdocs\takaful\
+
+3. CRÉER LA BASE DE DONNÉES
+   a) Ouvrez votre navigateur et allez sur : http://localhost/phpmyadmin
+   b) Cliquez sur "Nouvelle base de données" (ou "SQL")
+   c) Cliquez sur l'onglet "Importer"
+   d) Cliquez "Choisir un fichier" → sélectionnez "takaful.sql"
+   e) Cliquez "Exécuter"
+   
+   OU via l'onglet SQL, copiez-collez le contenu de takaful.sql
+
+4. ACCÉDER AU SITE
+   Ouvrez : http://localhost/takaful/index.php
+
+===============================================================
+COMPTES DE DÉMONSTRATION :
+===============================================================
+
+Administrateur :
+  Email    : admin@takaful.dz
+  Mdp      : password
+
+Membre normal :
+  Email    : sara@test.dz
+  Mdp      : password
+
+Président d'Association :
+  Email    : ahmed@test.dz
+  Mdp      : password
+
+Président de Siège :
+  Email    : fatima@test.dz
+  Mdp      : password
+
+Membre d'Association :
+  Email    : karim@test.dz
+  Mdp      : password
+
+===============================================================
+STRUCTURE DU PROJET :
+===============================================================
+
+takaful/
+├── config/
+│   └── db.php              ← Configuration base de données
+├── includes/
+│   ├── auth.php            ← Gestion authentification
+│   ├── header.php          ← En-tête commun
+│   └── footer.php          ← Pied de page commun
+├── public/
+│   ├── css/style.css       ← Feuille de style
+│   └── js/main.js          ← Scripts JavaScript
+├── dons/                   ← Module des dons
+├── demandes/               ← Module demandes d'aide
+├── associations/           ← Module associations
+├── sieges/                 ← Module sièges
+├── missions/               ← Module missions
+├── president_siege/        ← Espace président de siège
+├── president_association/  ← Espace président d'association
+├── admin/                  ← Espace administrateur
+├── index.php               ← Page d'accueil
+├── login.php               ← Connexion
+├── register.php            ← Inscription
+├── logout.php              ← Déconnexion
+├── dashboard.php           ← Tableau de bord membre
+├── profil.php              ← Profil utilisateur
+└── takaful.sql             ← Base de données SQL
+
+===============================================================
+FONCTIONNALITÉS IMPLÉMENTÉES :
+===============================================================
+
+✅ VISITEUR
+   - Consulter la page d'accueil avec statistiques
+   - Voir toutes les associations actives
+   - Voir le détail d'une association et ses sièges
+
+✅ MEMBRE
+   - Inscription et connexion sécurisée
+   - Tableau de bord personnalisé
+   - Effectuer un don financier ou matériel
+   - Suivre le statut d'un don (avec barre de progression)
+   - Annuler un don en attente
+   - Soumettre une demande d'aide
+   - Suivre sa demande d'aide
+   - Consulter l'historique des dons
+   - Créer une association (soumise à validation admin)
+   - Modifier son profil
+
+✅ PRÉSIDENT D'ASSOCIATION
+   - Tableau de bord avec statistiques
+   - Gérer les sièges (créer, modifier, supprimer, voir le détail)
+   - Assigner un président à chaque siège
+   - Gérer les membres de l'association (voir, retirer)
+
+✅ PRÉSIDENT DE SIÈGE
+   - Tableau de bord du siège
+   - Gérer les dons reçus (confirmer, marquer collecté, annuler)
+   - Gérer les demandes d'aide (en cours, accepter, refuser, résoudre)
+   - Créer et gérer les missions
+   - Voir le résumé du siège
+
+✅ MEMBRE D'ASSOCIATION
+   - Voir les missions assignées
+
+✅ ADMINISTRATEUR SYSTÈME
+   - Tableau de bord global avec statistiques
+   - Gérer les utilisateurs (lister, filtrer, suspendre, supprimer)
+   - Gérer les associations (valider, rejeter, supprimer)
+   - Gérer les annonces de maintenance (créer, modifier, supprimer)
+   - Gérer les sièges
+
+===============================================================
+EN CAS DE PROBLÈME :
+===============================================================
+
+• "Accès refusé" base de données :
+  → Vérifiez que MySQL est démarré dans XAMPP
+  → Vérifiez les identifiants dans config/db.php
+    (par défaut : root / pas de mot de passe)
+
+• Page blanche :
+  → Activez l'affichage des erreurs PHP dans XAMPP
+  → Vérifiez que la base "takaful" existe dans phpMyAdmin
+
+• Problème de chemins :
+  → Votre projet DOIT être dans htdocs/takaful/
+  → Accédez via http://localhost/takaful/ et non http://localhost/
+
+===============================================================
