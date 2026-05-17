@@ -7,7 +7,7 @@ $siege = $db->prepare("SELECT s.*, a.nom as assoc_nom, a.president_id as assoc_p
 $siege->execute([$id]); $siege = $siege->fetch();
 if (!$siege) { flash('Siège introuvable.', 'error'); header('Location: ' . BASE_URL . 'dashboard.php'); exit; }
 $uid = $_SESSION['user_id'];
-$canEdit = isAdmin() || $siege['assoc_president'] === $uid;
+$canEdit = $siege['assoc_president'] === $uid;
 
 $nbDons = $db->prepare("SELECT COUNT(*) FROM don WHERE siege_id=?"); $nbDons->execute([$id]); $nbDons = $nbDons->fetchColumn();
 $nbDemandes = $db->prepare("SELECT COUNT(*) FROM demande_aide WHERE siege_id=?"); $nbDemandes->execute([$id]); $nbDemandes = $nbDemandes->fetchColumn();

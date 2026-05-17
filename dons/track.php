@@ -13,6 +13,10 @@ $steps = [
     ['key'=>'confirme','label'=>'Don confirmé','icon'=>'check-circle','desc'=>'Le responsable du siège a confirmé votre don.'],
     ['key'=>'collecte','label'=>'Don collecté','icon'=>'hands-helping','desc'=>'Votre don a été collecté et remis aux bénéficiaires.'],
 ];
+
+$assign = $db->prepare("SELECT * FROM assignation WHERE don_id=? ORDER BY date_assignation DESC LIMIT 1");
+$assign->execute([$id]);
+$assignData = $assign->fetch();
 $statusOrder = ['en_attente'=>0,'confirme'=>1,'collecte'=>2,'annule'=>-1];
 $currentStep = $statusOrder[$don['statut']] ?? 0;
 
@@ -49,7 +53,14 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <?php endif; ?>
 
-            <?php if ($don['statut'] !== 'annule'): ?>
+            <?php if ($don['statut'] === 'annule'): ?>
+                <div class="alert alert-danger" style="margin-bottom:15px;"><i class="fas fa-times-circle"></i> Votre don a été annulé ou refusé.</div>
+                <?php if ($don['message_decision']): ?>
+                    <div style="padding:15px;background:#ffebee;border-left:4px solid #f44336;border-radius:4px;margin-bottom:20px;">
+                        <strong>Motif de l'annulation :</strong><br><?= nl2br(htmlspecialchars($don['message_decision'])) ?>
+                    </div>
+                <?php endif; ?>
+            <?php else: ?>
             <div style="display:flex;gap:0;margin:30px 0;position:relative;">
                 <div style="position:absolute;top:20px;left:0;right:0;height:3px;background:var(--border);z-index:0;"></div>
                 <div style="position:absolute;top:20px;left:0;width:<?= min(100, ($currentStep / max(count($steps)-1,1)) * 100) ?>%;height:3px;background:var(--primary);z-index:1;transition:width 0.5s;"></div>
@@ -63,6 +74,29 @@ include __DIR__ . '/../includes/header.php';
                 </div>
                 <?php endforeach; ?>
             </div>
+            <?php endif; ?>
+
+            <?php if (in_array($don['statut'], ['confirme', 'collecte']) && $don['message_decision']): ?>
+                <div style="padding:15px;background:#e8f5e9;border-left:4px solid #4caf50;border-radius:4px;margin-top:20px;">
+                    <strong>Message du responsable :</strong><br><?= nl2br(htmlspecialchars($don['message_decision'])) ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($assignData && $assignData['statut'] === 'terminee' && $assignData['date_rendezvous']): ?>
+                <div style="padding:15px;background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-top:20px;">
+                    <h4 style="color:var(--primary);margin-bottom:10px;"><i class="fas fa-calendar-check"></i> Collecte planifiée</h4>
+                    <p><strong>Date et Heure :</strong> <?= date('d/m/Y à H:i', strtotime($assignData['date_rendezvous'])) ?></p>
+                    <?php if ($assignData['note_rendezvous']): ?>
+                        <p style="margin-top:8px;"><strong>Note (Lieu / Instructions) :</strong><br><?= nl2br(htmlspecialchars($assignData['note_rendezvous'])) ?></p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($assignData && $assignData['statut'] === 'annulee' && $assignData['message_non_resolu']): ?>
+                <div class="alert alert-warning" style="margin-top:20px;">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Problème lors de la collecte :</strong><br>
+                    <?= nl2br(htmlspecialchars($assignData['message_non_resolu'])) ?>
+                </div>
             <?php endif; ?>
         </div>
         <div class="card-footer">

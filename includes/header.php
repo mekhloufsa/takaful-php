@@ -36,14 +36,28 @@ $role = getRole();
                 <?php endif; ?>
 
                 <?php if (hasRole(['president_association'])): ?>
+                    <?php
+                    // Vérifier si l'association du président est active
+                    $__db = getDB();
+                    $__assocCheck = $__db->prepare("SELECT statut FROM association WHERE president_id=? LIMIT 1");
+                    $__assocCheck->execute([$_SESSION['user_id']]);
+                    $__assocStatut = $__assocCheck->fetchColumn();
+                    ?>
+                    <?php if ($__assocStatut === 'active'): ?>
                     <li class="dropdown">
                         <a href="#"><i class="fas fa-building"></i> Mon Association <i class="fas fa-chevron-down"></i></a>
                         <ul class="dropdown-menu">
                             <li><a href="<?= BASE_URL ?>president_association/dashboard.php">Tableau de bord</a></li>
-                             <li><a href="<?= BASE_URL ?>sieges/index.php">Gérer les sièges</a></li>
-                            <li><a href="<?= BASE_URL ?>president_association/membres.php">Membres</a></li>
+                            <li><a href="<?= BASE_URL ?>sieges/index.php">Gérer les sièges</a></li>
+                            <li><a href="<?= BASE_URL ?>president_association/membres.php">Membres des Sièges</a></li>
+                            <li><a href="<?= BASE_URL ?>president_association/dons.php">Dons reçus</a></li>
+                            <li><a href="<?= BASE_URL ?>president_association/demandes.php">Demandes d'aide</a></li>
+                            <li><a href="<?= BASE_URL ?>president_association/candidatures.php">Candidatures</a></li>
                         </ul>
                     </li>
+                    <?php else: ?>
+                    <li><a href="<?= BASE_URL ?>president_association/dashboard.php"><i class="fas fa-clock"></i> Ma demande (en attente)</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if (hasRole(['president_siege'])): ?>
@@ -51,8 +65,9 @@ $role = getRole();
                         <a href="#"><i class="fas fa-map-marker-alt"></i> Mon Siège <i class="fas fa-chevron-down"></i></a>
                         <ul class="dropdown-menu">
                             <li><a href="<?= BASE_URL ?>president_siege/dashboard.php">Tableau de bord</a></li>
+                            <li><a href="<?= BASE_URL ?>president_siege/membres.php">Gérer les membres</a></li>
                             <li><a href="<?= BASE_URL ?>president_siege/dons.php">Gérer les dons</a></li>
-                            <li><a href="<?= BASE_URL ?>president_siege/missions.php">Missions</a></li>
+                            <li><a href="<?= BASE_URL ?>missions/index.php">Mes Missions Personnelles</a></li>
                             <li><a href="<?= BASE_URL ?>president_siege/demandes.php">Demandes d'aide</a></li>
                         </ul>
                     </li>
@@ -79,6 +94,12 @@ $role = getRole();
                     <ul class="dropdown-menu">
                         <li><a href="<?= BASE_URL ?>dashboard.php">Mon tableau de bord</a></li>
                         <li><a href="<?= BASE_URL ?>profil.php">Mon profil</a></li>
+                        <?php if (!isAdmin()): ?>
+                            <li><hr></li>
+                            <li><a href="<?= BASE_URL ?>dons/track.php"><i class="fas fa-donate"></i> Mes dons</a></li>
+                            <li><a href="<?= BASE_URL ?>demandes/track.php"><i class="fas fa-hand-holding-heart"></i> Mes demandes d'aide</a></li>
+                            <li><a href="<?= BASE_URL ?>candidatures/track.php"><i class="fas fa-handshake"></i> Mes candidatures</a></li>
+                        <?php endif; ?>
                         <li><hr></li>
                         <li><a href="<?= BASE_URL ?>logout.php" class="text-danger"><i class="fas fa-sign-out-alt"></i> Déconnexion</a></li>
                     </ul>

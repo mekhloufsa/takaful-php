@@ -4,15 +4,20 @@ if (isLoggedIn()) { header('Location: ' . BASE_URL . 'dashboard.php'); exit; }
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nom = trim($_POST['nom'] ?? '');
-    $prenom = trim($_POST['prenom'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $telephone = trim($_POST['telephone'] ?? '');
-    $wilaya = trim($_POST['wilaya'] ?? '');
+    $nom      = trim($_POST['nom'] ?? '');
+    $prenom   = trim($_POST['prenom'] ?? '');
+    $email    = trim($_POST['email'] ?? '');
+    $telephone= trim($_POST['telephone'] ?? '');
+    $wilaya   = trim($_POST['wilaya'] ?? '');
+    $nin      = trim($_POST['nin'] ?? '');
     $password = $_POST['password'] ?? '';
-    $confirm = $_POST['confirm'] ?? '';
+    $confirm  = $_POST['confirm'] ?? '';
 
-    if (empty($nom) || empty($prenom) || empty($email) || empty($password)) {
+    // NIN : NULL si vide, sinon valider format 18 chiffres
+    $ninValue = !empty($nin) ? $nin : null;
+    if ($ninValue !== null && !preg_match('/^\d{18}$/', $ninValue)) {
+        $error = 'Le NIN doit contenir exactement 18 chiffres.';
+    } elseif (empty($nom) || empty($prenom) || empty($email) || empty($password)) {
         $error = 'Veuillez remplir tous les champs obligatoires.';
     } elseif ($password !== $confirm) {
         $error = 'Les mots de passe ne correspondent pas.';
@@ -20,15 +25,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Le mot de passe doit contenir au moins 6 caractères.';
     } else {
         $db = getDB();
+        // Vérifier email
         $exists = $db->prepare("SELECT id FROM membre WHERE email = ?");
         $exists->execute([$email]);
         if ($exists->fetch()) {
             $error = 'Cette adresse email est déjà utilisée.';
-        } else {
-            $id = uuid();
+        }
+        // Vérifier NIN si fourni
+        elseif ($ninValue !== null) {
+            $existsNin = $db->prepare("SELECT id FROM membre WHERE nin = ?");
+            $existsNin->execute([$ninValue]);
+            if ($existsNin->fetch()) { $error = 'Ce NIN est déjà utilisé.'; }
+        }
+        if (!$error) {
+            $id   = uuid();
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $db->prepare("INSERT INTO membre (id,nom,prenom,email,mot_de_passe,telephone,wilaya,role,statut) VALUES (?,?,?,?,?,?,?,'membre','actif')");
-            $stmt->execute([$id, $nom, $prenom, $email, $hash, $telephone, $wilaya]);
+            $stmt = $db->prepare("INSERT INTO membre (id,nom,prenom,email,mot_de_passe,telephone,wilaya,nin,role,statut) VALUES (?,?,?,?,?,?,?,?,'membre','actif')");
+            $stmt->execute([$id, $nom, $prenom, $email, $hash, $telephone, $wilaya, $ninValue]);
             loginMembre($email, $password);
             flash('Compte créé avec succès ! Bienvenue sur Takaful.', 'success');
             header('Location: ' . BASE_URL . 'dashboard.php'); exit;
@@ -41,7 +54,7 @@ $pageTitle = 'Inscription';
 include __DIR__ . '/includes/header.php';
 ?>
 <div class="container py-20">
-    <div class="form-card" style="max-width:600px;">
+    <div class="form-card" style="max-width:620px;">
         <div class="form-title"><i class="fas fa-user-plus text-primary"></i><br>Créer un compte</div>
         <?php if ($error): ?>
         <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> <?= htmlspecialchars($error) ?></div>
@@ -60,6 +73,16 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group">
                 <label>Email <span>*</span></label>
                 <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="votre@email.dz">
+            </div>
+            <div class="form-group">
+                <label>NIN — Numéro d'Identification National</label>
+                <input type="text" name="nin" class="form-control" 
+                       value="<?= htmlspecialchars($_POST['nin'] ?? '') ?>"
+                       placeholder="18 chiffres (ex: 100198500010001234)"
+                       maxlength="18" pattern="\d{18}"
+                       inputmode="numeric"
+                       title="Le NIN doit contenir exactement 18 chiffres">
+                <p class="form-hint"><i class="fas fa-info-circle"></i> Optionnel. Le NIN se trouve sur votre carte d'identité nationale.</p>
             </div>
             <div class="form-row">
                 <div class="form-group">

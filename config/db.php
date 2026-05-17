@@ -28,6 +28,12 @@ function getDB() {
                 <p class="mt-20 text-light">Vérifiez que XAMPP est démarré et que la base de données <strong>' . DB_NAME . '</strong> existe dans phpMyAdmin.</p>
             </div>');
         }
+        // Auto migration to ensure message and message_decision exist in membre_association
+        try {
+            $pdo->exec("ALTER TABLE membre_association ADD COLUMN IF NOT EXISTS message TEXT NULL AFTER document_path");
+            $pdo->exec("ALTER TABLE membre_association ADD COLUMN IF NOT EXISTS message_decision TEXT NULL AFTER message");
+            $pdo->exec("ALTER TABLE assignation ADD COLUMN IF NOT EXISTS president_assigne_id VARCHAR(36) NULL AFTER membre_association_id");
+        } catch (Exception $e) {}
     }
     return $pdo;
 }

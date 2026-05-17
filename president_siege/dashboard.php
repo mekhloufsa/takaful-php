@@ -1,81 +1,87 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
 requireRole(['president_siege']);
 $db = getDB();
 $uid = $_SESSION['user_id'];
-$siege = $db->prepare("SELECT s.*, a.nom as assoc_nom FROM siege s JOIN association a ON s.association_id=a.id WHERE s.president_siege_id=?");
-$siege->execute([$uid]); $siege = $siege->fetch();
-if (!$siege) { flash('Aucun siège assigné à votre compte.', 'error'); header('Location: ' . BASE_URL . 'dashboard.php'); exit; }
-$sid = $siege['id'];
 
-$nbDons = $db->prepare("SELECT COUNT(*) FROM don WHERE siege_id=?"); $nbDons->execute([$sid]); $nbDons = $nbDons->fetchColumn();
-$nbDonsAttente = $db->prepare("SELECT COUNT(*) FROM don WHERE siege_id=? AND statut='en_attente'"); $nbDonsAttente->execute([$sid]); $nbDonsAttente = $nbDonsAttente->fetchColumn();
-$nbDemandes = $db->prepare("SELECT COUNT(*) FROM demande_aide WHERE siege_id=?"); $nbDemandes->execute([$sid]); $nbDemandes = $nbDemandes->fetchColumn();
-$nbDemandesAttente = $db->prepare("SELECT COUNT(*) FROM demande_aide WHERE siege_id=? AND statut='soumise'"); $nbDemandesAttente->execute([$sid]); $nbDemandesAttente = $nbDemandesAttente->fetchColumn();
-$nbMissions = $db->prepare("SELECT COUNT(*) FROM mission WHERE siege_id=?"); $nbMissions->execute([$sid]); $nbMissions = $nbMissions->fetchColumn();
+// Trouver le siège du président
+$stmt = $db->prepare("SELECT s.*, a.nom as assoc_nom FROM siege s JOIN association a ON s.association_id=a.id WHERE s.president_siege_id=?");
+$stmt->execute([$uid]);
+$siege = $stmt->fetch();
 
-$recentDons = $db->prepare("SELECT d.*, m.nom, m.prenom FROM don d JOIN membre m ON d.donateur_id=m.id WHERE d.siege_id=? ORDER BY d.date_don DESC LIMIT 5"); $recentDons->execute([$sid]); $recentDons = $recentDons->fetchAll();
-$recentDemandes = $db->prepare("SELECT da.*, m.nom, m.prenom FROM demande_aide da JOIN membre m ON da.demandeur_id=m.id WHERE da.siege_id=? ORDER BY da.date_demande DESC LIMIT 5"); $recentDemandes->execute([$sid]); $recentDemandes = $recentDemandes->fetchAll();
+if (!$siege) {
+    flash('Vous n\'êtes assigné à aucun siège en tant que responsable.', 'error');
+    header('Location: ' . BASE_URL . 'index.php');
+    exit;
+}
 
-$pageTitle = 'Espace Président de Siège';
+// Statistiques
+$nbDemandes = $db->prepare("SELECT COUNT(*) FROM demande_aide WHERE siege_id=? AND statut='soumise'");
+$nbDemandes->execute([$siege['id']]); $nbDemandes = $nbDemandes->fetchColumn();
+
+$nbDons = $db->prepare("SELECT COUNT(*) FROM don WHERE siege_id=? AND statut='en_attente'");
+$nbDons->execute([$siege['id']]); $nbDons = $nbDons->fetchColumn();
+
+$nbMembres = $db->prepare("SELECT COUNT(*) FROM membre_association WHERE siege_id=? AND statut='actif'");
+$nbMembres->execute([$siege['id']]); $nbMembres = $nbMembres->fetchColumn();
+
+$nbCandidatures = $db->prepare("SELECT COUNT(*) FROM membre_association WHERE siege_id=? AND statut='en_attente'");
+$nbCandidatures->execute([$siege['id']]); $nbCandidatures = $nbCandidatures->fetchColumn();
+
+$nbMesMissions = $db->prepare("SELECT COUNT(*) FROM assignation WHERE president_assigne_id=? AND statut IN ('assignee','en_cours')");
+$nbMesMissions->execute([$uid]); $nbMesMissions = $nbMesMissions->fetchColumn();
+
+$pageTitle = 'Tableau de bord - Siège';
 include __DIR__ . '/../includes/header.php';
 ?>
 <div class="page-header">
-    <div class="breadcrumb"><a href="<?= BASE_URL ?>index.php">Accueil</a> / Espace Président de Siège</div>
-    <h1><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($siege['nom']) ?></h1>
-    <p><?= htmlspecialchars($siege['assoc_nom']) ?> — <?= htmlspecialchars($siege['wilaya']) ?></p>
+    <div class="breadcrumb"><a href="<?= BASE_URL ?>index.php">Accueil</a> / Mon Siège</div>
+    <h1><i class="fas fa-map-marker-alt"></i> Espace Responsable de Siège</h1>
+    <p><?= htmlspecialchars($siege['nom']) ?> - <?= htmlspecialchars($siege['assoc_nom']) ?></p>
 </div>
-<div class="container py-20">
-    <div class="stats-grid mb-20">
+
+<div class="container py-50">
+    <?php if ($nbMesMissions > 0): ?>
+        <div class="alert alert-info mb-20" style="display:flex; justify-content:space-between; align-items:center; border-left: 5px solid var(--primary); background: rgba(52, 152, 219, 0.1);">
+            <div>
+                <i class="fas fa-tasks icon-primary-text" style="font-size:1.2rem; margin-right: 8px;"></i>
+                <strong>Vous vous êtes assigné des missions personnelles !</strong> Vous avez <strong><?= $nbMesMissions ?></strong> mission(s) en cours à finaliser.
+            </div>
+            <a href="<?= BASE_URL ?>missions/index.php" class="btn btn-sm btn-primary" style="margin-left: 15px;"><i class="fas fa-external-link-alt"></i> Gérer mes missions</a>
+        </div>
+    <?php endif; ?>
+    <div class="stats-grid mb-20" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
         <div class="stat-card">
-            <div class="stat-card-icon icon-primary-text"><i class="fas fa-donate"></i></div>
-            <div class="stat-card-info">
-                <div class="num"><?= $nbDons ?></div>
-                <div class="label">Total dons <?php if($nbDonsAttente): ?><span class="badge badge-warning"><?= $nbDonsAttente ?> en attente</span><?php endif; ?></div>
+            <div class="stat-icon" style="background:var(--primary);color:white;"><i class="fas fa-hand-holding-heart"></i></div>
+            <div class="stat-info">
+                <h3><?= $nbDemandes ?></h3>
+                <p>Demandes en attente</p>
+                <a href="demandes.php" class="btn btn-sm btn-outline mt-10">Traiter</a>
             </div>
         </div>
-        <div class="stat-card orange">
-            <div class="stat-card-icon icon-secondary-text"><i class="fas fa-hand-holding-heart"></i></div>
-            <div class="stat-card-info">
-                <div class="num"><?= $nbDemandes ?></div>
-                <div class="label">Demandes d'aide <?php if($nbDemandesAttente): ?><span class="badge badge-warning"><?= $nbDemandesAttente ?> nouvelles</span><?php endif; ?></div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#2ecc71;color:white;"><i class="fas fa-donate"></i></div>
+            <div class="stat-info">
+                <h3><?= $nbDons ?></h3>
+                <p>Dons en attente</p>
+                <a href="dons.php" class="btn btn-sm btn-outline mt-10">Traiter</a>
             </div>
         </div>
-        <div class="stat-card blue">
-            <div class="stat-card-icon icon-info-text"><i class="fas fa-tasks"></i></div>
-            <div class="stat-card-info"><div class="num"><?= $nbMissions ?></div><div class="label">Missions</div></div>
-        </div>
-    </div>
-
-    <div class="flex gap-10 mb-20" style="flex-wrap:wrap;">
-        <a href="<?= BASE_URL ?>president_siege/dons.php" class="btn btn-primary"><i class="fas fa-donate"></i> Gérer les dons</a>
-        <a href="<?= BASE_URL ?>president_siege/demandes.php" class="btn btn-secondary"><i class="fas fa-hand-holding-heart"></i> Gérer les demandes</a>
-        <a href="<?= BASE_URL ?>president_siege/missions.php" class="btn btn-outline"><i class="fas fa-tasks"></i> Missions</a>
-    </div>
-
-    <div class="two-col-grid">
-        <div class="table-wrapper">
-            <div class="py-20 px-20 border-bottom flex justify-between items-center" style="padding-left:20px;padding-right:20px;">
-                <h3 class="font-bold" style="font-size:1rem;"><i class="fas fa-donate icon-primary-text"></i> Derniers dons</h3>
-                <a href="<?= BASE_URL ?>president_siege/dons.php" class="btn btn-outline btn-sm">Voir tout</a>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#e67e22;color:white;"><i class="fas fa-user-plus"></i></div>
+            <div class="stat-info">
+                <h3><?= $nbCandidatures ?></h3>
+                <p>Candidatures bénévoles</p>
+                <a href="membres.php" class="btn btn-sm btn-outline mt-10">Gérer</a>
             </div>
-            <?php if ($recentDons): ?>
-            <table><thead><tr><th>Donateur</th><th>Type</th><th>Montant</th><th>Statut</th></tr></thead><tbody>
-            <?php foreach ($recentDons as $d): ?><tr><td><?= htmlspecialchars($d['nom'].' '.$d['prenom']) ?></td><td><?= ucfirst($d['type']) ?></td><td><?= $d['montant']>0?number_format($d['montant'],2).' DA':'—' ?></td><td><span class="badge badge-<?= ['en_attente'=>'warning','confirme'=>'success','collecte'=>'success','annule'=>'danger'][$d['statut']]??'secondary' ?>"><?= $d['statut'] ?></span></td></tr><?php endforeach; ?>
-            </tbody></table>
-            <?php else: ?><div class="empty-state"><i class="fas fa-donate"></i><h3>Aucun don</h3></div><?php endif; ?>
         </div>
-        <div class="table-wrapper">
-            <div class="py-20 px-20 border-bottom flex justify-between items-center" style="padding-left:20px;padding-right:20px;">
-                <h3 class="font-bold" style="font-size:1rem;"><i class="fas fa-hand-holding-heart icon-secondary-text"></i> Dernières demandes</h3>
-                <a href="<?= BASE_URL ?>president_siege/demandes.php" class="btn btn-outline btn-sm">Voir tout</a>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#3498db;color:white;"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <h3><?= $nbMembres ?></h3>
+                <p>Bénévoles actifs</p>
+                <a href="membres.php" class="btn btn-sm btn-outline mt-10">Voir la liste</a>
             </div>
-            <?php if ($recentDemandes): ?>
-            <table><thead><tr><th>Demandeur</th><th>Sujet</th><th>Statut</th></tr></thead><tbody>
-            <?php foreach ($recentDemandes as $d): ?><tr><td><?= htmlspecialchars($d['nom'].' '.$d['prenom']) ?></td><td><?= htmlspecialchars(substr($d['sujet'],0,30)) ?></td><td><span class="badge badge-<?= ['soumise'=>'info','en_cours'=>'warning','acceptee'=>'success','refusee'=>'danger','resolue'=>'success'][$d['statut']]??'secondary' ?>"><?= $d['statut'] ?></span></td></tr><?php endforeach; ?>
-            </tbody></table>
-            <?php else: ?><div class="empty-state"><i class="fas fa-hand-holding-heart"></i><h3>Aucune demande</h3></div><?php endif; ?>
         </div>
     </div>
 </div>

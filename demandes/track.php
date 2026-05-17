@@ -12,6 +12,10 @@ $statusLabels = ['soumise'=>'Soumise','en_cours'=>'En cours de traitement','acce
 $statusBadge = ['soumise'=>'info','en_cours'=>'warning','acceptee'=>'success','refusee'=>'danger','resolue'=>'success'];
 $typeLabels = ['financiere'=>'Aide financière','medicale'=>'Aide médicale','alimentaire'=>'Aide alimentaire','autre'=>'Autre'];
 
+$assign = $db->prepare("SELECT * FROM assignation WHERE demande_id=? ORDER BY date_assignation DESC LIMIT 1");
+$assign->execute([$id]);
+$assignData = $assign->fetch();
+
 $steps = [
     ['key'=>'soumise','label'=>'Demande soumise','icon'=>'paper-plane'],
     ['key'=>'en_cours','label'=>'En traitement','icon'=>'spinner'],
@@ -43,12 +47,28 @@ include __DIR__ . '/../includes/header.php';
                 <div><strong>Siège :</strong> <?= $demande['siege_nom'] ? htmlspecialchars($demande['siege_nom']) : '—' ?></div>
             </div>
             <?php if ($demande['description']): ?>
-            <div style="padding:14px;background:var(--bg);border-radius:8px;margin-bottom:24px;">
+            <div style="padding:14px;background:var(--bg);border-radius:8px;margin-bottom:16px;">
                 <strong>Description :</strong><br><?= nl2br(htmlspecialchars($demande['description'])) ?>
             </div>
             <?php endif; ?>
+            <?php if (!empty($demande['document_path'])): ?>
+            <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--primary-light);border-radius:8px;margin-bottom:24px;">
+                <i class="fas fa-paperclip" style="font-size:1.5rem;color:var(--primary);"></i>
+                <div>
+                    <p style="font-weight:700;margin-bottom:4px;font-size:0.9rem;">Pièce jointe</p>
+                    <a href="<?= BASE_URL . htmlspecialchars($demande['document_path']) ?>" target="_blank" class="btn btn-outline btn-sm">
+                        <i class="fas fa-eye"></i> Voir le document
+                    </a>
+                </div>
+            </div>
+            <?php endif; ?>
             <?php if ($demande['statut'] === 'refusee'): ?>
-            <div class="alert alert-danger"><i class="fas fa-times-circle"></i> Votre demande a été refusée. Vous pouvez soumettre une nouvelle demande.</div>
+                <div class="alert alert-danger" style="margin-bottom:15px;"><i class="fas fa-times-circle"></i> Votre demande a été refusée.</div>
+                <?php if ($demande['message_decision']): ?>
+                    <div style="padding:15px;background:#ffebee;border-left:4px solid #f44336;border-radius:4px;">
+                        <strong>Motif du refus :</strong><br><?= nl2br(htmlspecialchars($demande['message_decision'])) ?>
+                    </div>
+                <?php endif; ?>
             <?php elseif ($demande['statut'] !== 'resolue'): ?>
             <div style="display:flex;gap:0;margin:30px 0;position:relative;">
                 <div style="position:absolute;top:20px;left:0;right:0;height:3px;background:var(--border);z-index:0;"></div>
@@ -63,7 +83,30 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
             </div>
             <?php else: ?>
-            <div class="alert alert-success"><i class="fas fa-check-circle"></i> Votre demande a été résolue avec succès. Merci de faire confiance à Takaful !</div>
+                <div class="alert alert-success" style="margin-bottom:15px;"><i class="fas fa-check-circle"></i> Votre demande a été résolue avec succès !</div>
+            <?php endif; ?>
+
+            <?php if (in_array($demande['statut'], ['acceptee', 'en_cours', 'resolue']) && $demande['message_decision']): ?>
+                <div style="padding:15px;background:#e8f5e9;border-left:4px solid #4caf50;border-radius:4px;margin-top:20px;">
+                    <strong>Message du responsable :</strong><br><?= nl2br(htmlspecialchars($demande['message_decision'])) ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($assignData && $assignData['statut'] === 'terminee' && $assignData['date_rendezvous']): ?>
+                <div style="padding:15px;background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-top:20px;">
+                    <h4 style="color:var(--primary);margin-bottom:10px;"><i class="fas fa-calendar-check"></i> Rendez-vous planifié</h4>
+                    <p><strong>Date et Heure :</strong> <?= date('d/m/Y à H:i', strtotime($assignData['date_rendezvous'])) ?></p>
+                    <?php if ($assignData['note_rendezvous']): ?>
+                        <p style="margin-top:8px;"><strong>Note (Lieu / Instructions) :</strong><br><?= nl2br(htmlspecialchars($assignData['note_rendezvous'])) ?></p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($assignData && $assignData['statut'] === 'annulee' && $assignData['message_non_resolu']): ?>
+                <div class="alert alert-warning" style="margin-top:20px;">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Problème lors du traitement :</strong><br>
+                    <?= nl2br(htmlspecialchars($assignData['message_non_resolu'])) ?>
+                </div>
             <?php endif; ?>
         </div>
         <div class="card-footer">

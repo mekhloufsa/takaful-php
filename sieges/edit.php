@@ -8,7 +8,9 @@ $id = $_GET['id'] ?? '';
 $siege = $db->prepare("SELECT s.*, a.president_id FROM siege s JOIN association a ON s.association_id=a.id WHERE s.id=? AND a.president_id=?");
 $siege->execute([$id, $uid]); $siege = $siege->fetch();
 if (!$siege) { flash('Siège introuvable.', 'error'); header('Location: ' . BASE_URL . 'sieges/index.php'); exit; }
-$membres = $db->prepare("SELECT m.* FROM membre m JOIN membre_association ma ON m.id=ma.membre_id JOIN siege s ON ma.association_id=s.association_id WHERE s.id=? AND ma.statut='actif'"); $membres->execute([$id]); $membres = $membres->fetchAll();
+$membres = $db->prepare("SELECT m.* FROM membre m JOIN membre_association ma ON m.id=ma.membre_id WHERE ma.siege_id=? AND ma.statut='actif'"); 
+$membres->execute([$id]); 
+$membres = $membres->fetchAll();
 $wilayas = ['Adrar','Chlef','Laghouat','Oum El Bouaghi','Batna','Béjaïa','Biskra','Béchar','Blida','Bouira','Tamanrasset','Tébessa','Tlemcen','Tiaret','Tizi Ouzou','Alger','Djelfa','Jijel','Sétif','Saïda','Skikda','Sidi Bel Abbès','Annaba','Guelma','Constantine','Médéa','Mostaganem','M\'Sila','Mascara','Ouargla','Oran','El Bayadh','Illizi','Bordj Bou Arréridj','Boumerdès','El Tarf','Tindouf','Tissemsilt','El Oued','Khenchela','Souk Ahras','Tipaza','Mila','Aïn Defla','Naâma','Aïn Témouchent','Ghardaïa','Relizane'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

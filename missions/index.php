@@ -1,52 +1,100 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
-requireRole(['membre_association','president_siege']);
+requireRole(['membre_association', 'president_siege']);
 $db = getDB();
 $uid = $_SESSION['user_id'];
+$role = getRole();
 
-if (getRole() === 'president_siege') {
-    $siege = $db->prepare("SELECT * FROM siege WHERE president_siege_id=?"); $siege->execute([$uid]); $siege = $siege->fetch();
-    if (!$siege) { flash('Siège introuvable.', 'error'); header('Location: ' . BASE_URL . 'dashboard.php'); exit; }
-    $missions = $db->prepare("SELECT * FROM mission WHERE siege_id=? ORDER BY date_mission DESC, date_creation DESC"); $missions->execute([$siege['id']]); $missions = $missions->fetchAll();
+$missions = [];
+
+if ($role === 'president_siege') {
+    // Récupérer les assignations où le responsable de siège s'est assigné lui-même
+    $sql = "SELECT a.*, 
+                   don.type as don_type, don.categorie as don_cat, 
+                   dem.sujet as dem_sujet, dem.type_aide as dem_type
+            FROM assignation a 
+            LEFT JOIN don ON a.don_id = don.id
+            LEFT JOIN demande_aide dem ON a.demande_id = dem.id
+            WHERE a.president_assigne_id = ? 
+            ORDER BY a.date_assignation DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$uid]);
+    $missions = $stmt->fetchAll();
 } else {
-    $ma = $db->prepare("SELECT ma.* FROM membre_association ma WHERE ma.membre_id=? AND ma.statut='actif'"); $ma->execute([$uid]); $ma = $ma->fetch();
-    if (!$ma) { flash('Vous n\'êtes pas membre d\'une association.', 'error'); header('Location: ' . BASE_URL . 'dashboard.php'); exit; }
-    $missions = $db->prepare("SELECT m.* FROM mission m JOIN assignation a ON a.mission_id=m.id WHERE a.membre_association_id=? ORDER BY m.date_mission DESC"); $missions->execute([$ma['id']]); $missions = $missions->fetchAll();
+    // Trouver le membre_association_id
+    $stmt = $db->prepare("SELECT id, association_id, siege_id FROM membre_association WHERE membre_id=? AND statut='actif'");
+    $stmt->execute([$uid]);
+    $mas = $stmt->fetchAll();
+
+    if ($mas) {
+        $ma_ids = array_column($mas, 'id');
+        $placeholders = implode(',', array_fill(0, count($ma_ids), '?'));
+        
+        // Récupérer les assignations (Dons et Demandes)
+        $sql = "SELECT a.*, 
+                       don.type as don_type, don.categorie as don_cat, 
+                       dem.sujet as dem_sujet, dem.type_aide as dem_type
+                FROM assignation a 
+                LEFT JOIN don ON a.don_id = don.id
+                LEFT JOIN demande_aide dem ON a.demande_id = dem.id
+                WHERE a.membre_association_id IN ($placeholders) 
+                ORDER BY a.date_assignation DESC";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute($ma_ids);
+        $missions = $stmt->fetchAll();
+    }
 }
 
-$statusLabels = ['planifiee'=>'Planifiée','en_cours'=>'En cours','terminee'=>'Terminée','annulee'=>'Annulée'];
-$statusBadge = ['planifiee'=>'info','en_cours'=>'warning','terminee'=>'success','annulee'=>'danger'];
-$pageTitle = 'Mes Missions';
+$pageTitle = 'Mes Missions (Assignations)';
 include __DIR__ . '/../includes/header.php';
 ?>
 <div class="page-header">
-    <div class="breadcrumb"><a href="<?= BASE_URL ?>dashboard.php">Tableau de bord</a> / Missions</div>
-    <h1><i class="fas fa-tasks"></i> <?= getRole()==='president_siege'?'Gestion des Missions':'Mes Missions' ?></h1>
+    <div class="breadcrumb"><a href="<?= BASE_URL ?>index.php">Accueil</a> / Mes Missions</div>
+    <h1><i class="fas fa-tasks"></i> Mes Missions assignées</h1>
+    <p>Gérez les tâches qui vous ont été confiées par le responsable du siège.</p>
 </div>
-<div class="container" style="padding:30px 20px;">
-    <?php if (getRole() === 'president_siege'): ?>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
-        <a href="<?= BASE_URL ?>president_siege/missions.php" class="btn btn-primary"><i class="fas fa-cog"></i> Gérer les missions</a>
-    </div>
-    <?php endif; ?>
-    <?php if ($missions): ?>
-    <div class="cards-grid">
-        <?php foreach ($missions as $m): ?>
-        <div class="card">
-            <div class="card-header">
-                <div><h3 style="font-size:1rem;font-weight:800;"><?= htmlspecialchars($m['titre']) ?></h3><span class="badge badge-<?= $statusBadge[$m['statut']]??'secondary' ?>"><?= $statusLabels[$m['statut']]??$m['statut'] ?></span></div>
-            </div>
-            <div class="card-body">
-                <p style="color:var(--text-light);font-size:0.88rem;margin-bottom:12px;"><?= htmlspecialchars(substr($m['description']??'',0,100)) ?></p>
-                <p><i class="fas fa-calendar" style="color:var(--primary);"></i> <?= $m['date_mission']?date('d/m/Y H:i',strtotime($m['date_mission'])):'Date à définir' ?></p>
-                <p style="margin-top:6px;"><i class="fas fa-tag" style="color:var(--primary);"></i> <?= ucfirst($m['type']) ?></p>
-            </div>
-        </div>
-        <?php endforeach; ?>
-    </div>
-    <?php else: ?>
-    <div class="empty-state card" style="padding:60px;"><i class="fas fa-tasks" style="opacity:0.3;color:var(--primary);"></i><h3>Aucune mission</h3><p>Vous n'avez aucune mission assignée pour le moment.</p></div>
-    <?php endif; ?>
+<div class="container py-50">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date d'assignation</th>
+                <th>Type de tâche</th>
+                <th>Détail (Sujet / Catégorie)</th>
+                <th>Statut</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($missions as $m): ?>
+            <tr>
+                <td><?= date('d/m/Y', strtotime($m['date_assignation'])) ?></td>
+                <td>
+                    <?php if ($m['don_id']): ?>
+                        <span class="badge badge-info"><i class="fas fa-donate"></i> Collecte de Don</span>
+                    <?php elseif ($m['demande_id']): ?>
+                        <span class="badge badge-primary"><i class="fas fa-hand-holding-heart"></i> Demande d'aide</span>
+                    <?php else: ?>
+                        <span class="badge badge-secondary"><i class="fas fa-thumbtack"></i> Mission classique</span>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?= htmlspecialchars($m['dem_sujet'] ?? $m['don_cat'] ?? 'Mission') ?>
+                </td>
+                <td>
+                    <span class="badge badge-<?= ['assignee'=>'warning','en_cours'=>'primary','terminee'=>'success','annulee'=>'danger'][$m['statut']] ?? 'secondary' ?>">
+                        <?= ucfirst($m['statut']) ?>
+                    </span>
+                </td>
+                <td>
+                    <a href="traiter.php?id=<?= $m['id'] ?>" class="btn btn-sm btn-outline"><i class="fas fa-cog"></i> Gérer</a>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (empty($missions)): ?>
+            <tr><td colspan="5" class="text-center">Aucune mission assignée.</td></tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
 </div>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
