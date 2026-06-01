@@ -5,7 +5,7 @@
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', 'Root2025!,');
-define('DB_NAME', 'takaful1');
+define('DB_NAME', 'takaful');
 
 function getDB() {
     static $pdo = null;

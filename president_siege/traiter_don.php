@@ -39,25 +39,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Le message de justification est obligatoire.', 'error');
     } else {
         if ($action === 'accepter') {
-            if (empty($membre_id)) {
-                flash('Veuillez sélectionner un membre pour traiter cette collecte/réception.', 'error');
-            } else {
+            if ($don['type'] === 'financier') {
                 $db->beginTransaction();
                 try {
-                    // On le passe à 'confirme' (qui veut dire qu'il est en cours de traitement/collecte)
-                    $db->prepare("UPDATE don SET statut='confirme', message_decision=? WHERE id=?")->execute([$message, $did]);
-                    $aid = uuid();
-                    if ($membre_id === 'president_self') {
-                        $db->prepare("INSERT INTO assignation (id, membre_association_id, president_assigne_id, don_id, statut) VALUES (?, NULL, ?, ?, 'assignee')")->execute([$aid, $uid, $did]);
-                    } else {
-                        $db->prepare("INSERT INTO assignation (id, membre_association_id, president_assigne_id, don_id, statut) VALUES (?, ?, NULL, ?, 'assignee')")->execute([$aid, $membre_id, $did]);
-                    }
+                    // Pour un don financier, on passe directement au statut 'collecte' (terminé) sans assignation
+                    $db->prepare("UPDATE don SET statut='collecte', message_decision=? WHERE id=?")->execute([$message, $did]);
                     $db->commit();
-                    flash('Don accepté et mission assignée avec succès.', 'success');
+                    flash('Paiement confirmé. Le don financier a été enregistré comme collecté.', 'success');
                     header("Location: dons.php"); exit;
                 } catch(Exception $e) {
                     $db->rollBack();
-                    flash('Erreur lors de l\'assignation.', 'error');
+                    flash('Erreur lors de la validation du don financier.', 'error');
+                }
+            } else {
+                if (empty($membre_id)) {
+                    flash('Veuillez sélectionner un membre pour traiter cette collecte/réception.', 'error');
+                } else {
+                    $db->beginTransaction();
+                    try {
+                        // On le passe à 'confirme' (qui veut dire qu'il est en cours de traitement/collecte)
+                        $db->prepare("UPDATE don SET statut='confirme', message_decision=? WHERE id=?")->execute([$message, $did]);
+                        $aid = uuid();
+                        if ($membre_id === 'president_self') {
+                            $db->prepare("INSERT INTO assignation (id, membre_association_id, president_assigne_id, don_id, statut) VALUES (?, NULL, ?, ?, 'assignee')")->execute([$aid, $uid, $did]);
+                        } else {
+                            $db->prepare("INSERT INTO assignation (id, membre_association_id, president_assigne_id, don_id, statut) VALUES (?, ?, NULL, ?, 'assignee')")->execute([$aid, $membre_id, $did]);
+                        }
+                        $db->commit();
+                        flash('Don accepté et mission assignée avec succès.', 'success');
+                        header("Location: dons.php"); exit;
+                    } catch(Exception $e) {
+                        $db->rollBack();
+                        flash('Erreur lors de l\'assignation.', 'error');
+                    }
                 }
             }
         } elseif ($action === 'refuser') {
@@ -108,11 +122,16 @@ include __DIR__ . '/../includes/header.php';
                     <label>Action</label>
                     <select name="action" id="actionSelect" class="form-control" onchange="toggleAssign()" required>
                         <option value="">-- Choisir --</option>
+                        <?php if ($don['type'] === 'financier'): ?>
+                        <option value="accepter">Accepter (Géré directement par le responsable)</option>
+                        <?php else: ?>
                         <option value="accepter">Accepter & Assigner à un membre pour la collecte/réception</option>
+                        <?php endif; ?>
                         <option value="refuser">Refuser</option>
                     </select>
                 </div>
                 
+                <?php if ($don['type'] !== 'financier'): ?>
                 <div class="form-group" id="assignGroup" style="display:none;">
                     <label>Assigner à un bénévole du siège</label>
                     <select name="membre_association_id" class="form-control">
@@ -123,6 +142,7 @@ include __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="form-group">
                     <label>Message de justification (Obligatoire)</label>
@@ -135,7 +155,10 @@ include __DIR__ . '/../includes/header.php';
     </div>
     <script>
     function toggleAssign() {
-        document.getElementById('assignGroup').style.display = document.getElementById('actionSelect').value === 'accepter' ? 'block' : 'none';
+        var assignGrp = document.getElementById('assignGroup');
+        if (assignGrp) {
+            assignGrp.style.display = document.getElementById('actionSelect').value === 'accepter' ? 'block' : 'none';
+        }
     }
     </script>
     <?php else: ?>
